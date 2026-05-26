@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>未明シアター 予実管理ダッシュボード</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0e0e14;
+    --card: #16161f;
+    --card2: #1c1c28;
+    --border: #2a2a3d;
+    --accent: #7c5cfc;
+    --accent2: #00d4aa;
+    --accent3: #ff6b6b;
+    --accent4: #ffd166;
+    --text: #e8e8f0;
+    --muted: #7070a0;
+    --green: #00d4aa;
+    --yellow: #ffd166;
+    --red: #ff6b6b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Helvetica Neue', Arial, sans-serif; min-height: 100vh; }
+
+  /* HEADER */
+  .header { background: var(--card); border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .logo { width: 38px; height: 38px; background: var(--accent); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .title { font-size: 18px; font-weight: 700; letter-spacing: .5px; }
+  .subtitle { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+  .today-badge { background: var(--accent); color: #fff; font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 20px; }
+
+  /* MONTH TABS */
+  .month-tabs { display: flex; gap: 4px; padding: 14px 24px 0; overflow-x: auto; }
+  .month-tab { flex-shrink: 0; padding: 7px 16px; border-radius: 8px 8px 0 0; border: 1px solid var(--border); border-bottom: none; background: var(--card); color: var(--muted); font-size: 13px; cursor: pointer; transition: all .2s; }
+  .month-tab:hover { color: var(--text); }
+  .month-tab.active { background: var(--card2); color: var(--accent); border-color: var(--accent); font-weight: 600; }
+
+  /* MAIN */
+  .main { padding: 0 24px 32px; }
+  .section { background: var(--card2); border: 1px solid var(--border); border-top: none; border-radius: 0 0 12px 12px; padding: 20px; margin-bottom: 20px; }
+
+  /* KPI GRID */
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+  @media (max-width: 900px) { .kpi-grid { grid-template-columns: repeat(2,1fr); } }
+  @media (max-width: 500px) { .kpi-grid { grid-template-columns: 1fr; } }
+
+  .kpi-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; position: relative; overflow: hidden; }
+  .kpi-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 3px 3px 0 0; }
+  .kpi-card.c0::before { background: var(--accent4); }
+  .kpi-card.c1::before { background: var(--accent); }
+  .kpi-card.c2::before { background: var(--accent2); }
+  .kpi-card.c3::before { background: var(--accent3); }
+
+  .kpi-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 8px; }
+  .kpi-actual { font-size: 26px; font-weight: 700; line-height: 1; margin-bottom: 4px; }
+  .kpi-target { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+  .progress-bar-wrap { background: var(--border); border-radius: 4px; height: 6px; margin-bottom: 8px; overflow: hidden; }
+  .progress-bar-fill { height: 100%; border-radius: 4px; transition: width .4s; }
+  .kpi-rate { font-size: 13px; font-weight: 700; }
+  .rate-good { color: var(--green); }
+  .rate-mid { color: var(--yellow); }
+  .rate-bad { color: var(--red); }
+  .kpi-diff { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* INPUT SECTION */
+  .input-section { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-bottom: 20px; }
+  .input-section h3 { font-size: 14px; font-weight: 600; margin-bottom: 14px; color: var(--muted); letter-spacing: .5px; }
+  .input-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+  @media (max-width: 900px) { .input-grid { grid-template-columns: repeat(2,1fr); } }
+  .input-group label { font-size: 11px; color: var(--muted); display: block; margin-bottom: 5px; letter-spacing: .5px; }
+  .input-group input { width: 100%; background: var(--card2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; color: var(--text); font-size: 14px; outline: none; transition: border .2s; }
+  .input-group input:focus { border-color: var(--accent); }
+  .btn-update { margin-top: 14px; background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 9px 22px; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity .2s; }
+  .btn-update:hover { opacity: .85; }
+  .btn-save { margin-top: 14px; margin-left: 10px; background: var(--card2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 9px 22px; font-size: 13px; cursor: pointer; transition: all .2s; }
+  .btn-save:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* CHARTS */
+  .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  @media (max-width: 750px) { .charts-grid { grid-template-columns: 1fr; } }
+  .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+  .chart-card h3 { font-size: 13px; color: var(--muted); margin-bottom: 14px; letter-spacing: .5px; }
+
+  /* MONTHLY TABLE */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { background: var(--card); color: var(--muted); font-size: 11px; letter-spacing: .5px; text-align: right; padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  thead th:first-child { text-align: left; }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background .15s; }
+  tbody tr:hover { background: rgba(124,92,252,.06); }
+  tbody td { padding: 8px 10px; text-align: right; white-space: nowrap; }
+  tbody td:first-child { text-align: left; font-weight: 600; }
+  .row-target { color: var(--muted); font-size: 12px; }
+  .row-actual { font-weight: 600; }
+  .row-rate.good { color: var(--green); }
+  .row-rate.mid { color: var(--yellow); }
+  .row-rate.bad { color: var(--red); }
+  .current-month { background: rgba(124,92,252,.08) !important; }
+
+  /* MONTHLY PROGRESS (日次) */
+  .daily-section { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 20px; }
+  .daily-section h3 { font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+  .daily-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
+  @media (max-width: 700px) { .daily-grid { grid-template-columns: repeat(2,1fr); } }
+  .daily-item { background: var(--card2); border-radius: 8px; padding: 12px; }
+  .daily-item .d-label { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+  .daily-item .d-pace { font-size: 20px; font-weight: 700; }
+  .daily-item .d-sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .pace-bar { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .pace-bar-inner { flex: 1; background: var(--border); border-radius: 4px; height: 4px; overflow: hidden; }
+  .pace-bar-fill { height: 100%; border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo">🎬</div>
+    <div>
+      <div class="title">未明シアター 予実管理</div>
+      <div class="subtitle">YouTube チャンネル KPIダッシュボード</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="today-badge" id="todayBadge"></div>
+  </div>
+</div>
+
+<div class="month-tabs" id="monthTabs"></div>
+
+<div class="main">
+  <!-- KPI CARDS -->
+  <div class="section" style="border-radius:0 12px 12px 12px; border-top:1px solid var(--border);">
+    <div class="kpi-grid" id="kpiGrid"></div>
+
+    <!-- INPUT -->
+    <div class="input-section">
+      <h3>📥 実績入力（<span id="inputMonthLabel"></span>）</h3>
+      <div class="input-grid">
+        <div class="input-group">
+          <label>収益 (円)</label>
+          <input type="number" id="inp_revenue" placeholder="例: 61957">
+        </div>
+        <div class="input-group">
+          <label>横動画 再生数</label>
+          <input type="number" id="inp_hview" placeholder="例: 310553">
+        </div>
+        <div class="input-group">
+          <label>ショート 再生数</label>
+          <input type="number" id="inp_sview" placeholder="例: 478906">
+        </div>
+        <div class="input-group">
+          <label>CH登録者 増加数</label>
+          <input type="number" id="inp_sub" placeholder="例: 1205">
+        </div>
+      </div>
+      <button class="btn-update" onclick="applyInput()">✓ 更新する</button>
+      <button class="btn-save" onclick="saveHtml()">💾 HTMLとして保存</button>
+    </div>
+
+    <!-- DAILY PACE -->
+    <div class="daily-section">
+      <h3>📈 当月ペース分析（<span id="paceMonthLabel"></span>）</h3>
+      <div class="daily-grid" id="dailyGrid"></div>
+    </div>
+  </div>
+
+  <!-- CHARTS -->
+  <div class="charts-grid">
+    <div class="chart-card">
+      <h3>収益 推移（目標 vs 実績）</h3>
+      <canvas id="chartRevenue" height="180"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>再生数 推移（横動画）</h3>
+      <canvas id="chartHView" height="180"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>ショート再生数 推移</h3>
+      <canvas id="chartSView" height="180"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>チャンネル登録者 増加数 推移</h3>
+      <canvas id="chartSub" height="180"></canvas>
+    </div>
+  </div>
+
+  <!-- ANNUAL TABLE -->
+  <div class="chart-card">
+    <h3 style="margin-bottom:14px;">📊 月次サマリー（年間）</h3>
+    <div class="table-wrap">
+      <table id="annualTable"></table>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========== DATA ==========
+const MONTHS = ['4月','5月','6月','7月','8月','9月','10月','11月','12月','1月','2月','3月'];
+const MONTH_NUMS = [4,5,6,7,8,9,10,11,12,1,2,3];
+
+// 2026年度目標（スプレッドシートより）
+const TARGETS = {
+  revenue: [200000,200000,200000,300000,500000,400000,500000,600000,700000,800000,900000,1000000],
+  hview:   [500000,500000,500000,750000,1250000,1000000,1250000,1500000,1750000,2000000,2250000,2500000],
+  sview:   [5000000,5000000,5000000,7500000,12500000,10000000,12500000,15000000,17500000,20000000,22500000,25000000],
+  sub:     [2500,2500,2500,3750,6250,5000,6250,7500,8750,10000,11250,12500],
+};
+
+// 実績データ（初期値 = スプレッドシートから入力済み分）
+let ACTUALS = {
+  "revenue": [
+    61976,
+    215694,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+  ],
+  "hview": [
+    790467,
+    936250,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+  ],
+  "sview": [
+    0,
+    0,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+  ],
+  "sub": [
+    1205,
+    2989,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+  ]
+};
+
+// ========== STATE ==========
+const today = new Date();
+const currentYear = today.getFullYear();
+const currentMonth = today.getMonth() + 1; // 1-12
+// 年度月インデックス: 4月=0, ..., 3月=11
+function monthToIdx(m) { return m >= 4 ? m - 4 : m + 8; }
+let selectedIdx = monthToIdx(currentMonth);
+
+// ========== INIT ==========
+document.getElementById('todayBadge').textContent = `${currentYear}年${currentMonth}月${today.getDate()}日`;
+
+function renderTabs() {
+  const wrap = document.getElementById('monthTabs');
+  wrap.innerHTML = '';
+  MONTHS.forEach((m, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'month-tab' + (i === selectedIdx ? ' active' : '');
+    const hasData = ACTUALS.revenue[i] !== null;
+    btn.textContent = m + (hasData ? ' ✓' : '');
+    btn.onclick = () => { selectedIdx = i; renderAll(); };
+    wrap.appendChild(btn);
+  });
+}
+
+function fmt(val, type) {
+  if (val === null || val === undefined) return '—';
+  if (type === 'revenue') return '¥' + val.toLocaleString();
+  return val.toLocaleString();
+}
+
+function rateColor(r) {
+  if (r >= 80) return 'good';
+  if (r >= 50) return 'mid';
+  return 'bad';
+}
+function rateColorVar(r) {
+  if (r >= 80) return 'var(--green)';
+  if (r >= 50) return 'var(--yellow)';
+  return 'var(--red)';
+}
+
+function calcRate(actual, target) {
+  if (actual === null || !target) return null;
+  return Math.round(actual / target * 100);
+}
+
+// ========== KPI CARDS ==========
+const KPI_DEFS = [
+  { key: 'revenue', label: '収益 (AdSense)', type: 'revenue', colorIdx: 0 },
+  { key: 'hview',   label: '横動画 再生数', type: 'num', colorIdx: 1 },
+  { key: 'sview',   label: 'ショート 再生数', type: 'num', colorIdx: 2 },
+  { key: 'sub',     label: 'CH 登録者 増加', type: 'num', colorIdx: 3 },
+];
+
+function renderKPIs() {
+  const grid = document.getElementById('kpiGrid');
+  grid.innerHTML = '';
+  document.getElementById('inputMonthLabel').textContent = MONTHS[selectedIdx];
+
+  KPI_DEFS.forEach((def, ci) => {
+    const actual = ACTUALS[def.key][selectedIdx];
+    const target = TARGETS[def.key][selectedIdx];
+    const rate = calcRate(actual, target);
+    const diff = actual !== null ? actual - target : null;
+
+    const card = document.createElement('div');
+    card.className = `kpi-card c${def.colorIdx}`;
+
+    const barW = rate !== null ? Math.min(rate, 100) : 0;
+    const barColor = rate !== null ? rateColorVar(rate) : 'var(--border)';
+    const rClass = rate !== null ? rateColor(rate) : '';
+
+    card.innerHTML = `
+      <div class="kpi-label">${def.label}</div>
+      <div class="kpi-actual">${fmt(actual, def.type)}</div>
+      <div class="kpi-target">目標: ${fmt(target, def.type)}</div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-fill" style="width:${barW}%;background:${barColor};"></div>
+      </div>
+      <div class="kpi-rate ${rClass}">${rate !== null ? rate + '%' : '未入力'}</div>
+      <div class="kpi-diff">${diff !== null ? (diff >= 0 ? '+' : '') + fmt(diff, def.type) : ''}</div>
+    `;
+    grid.appendChild(card);
+  });
+
+  // Input field pre-fill
+  ['revenue','hview','sview','sub'].forEach((k,i) => {
+    const inp = document.getElementById(['inp_revenue','inp_hview','inp_sview','inp_sub'][i]);
+    inp.value = ACTUALS[k][selectedIdx] !== null ? ACTUALS[k][selectedIdx] : '';
+  });
+}
+
+// ========== DAILY PACE ==========
+function renderPace() {
+  document.getElementById('paceMonthLabel').textContent = MONTHS[selectedIdx];
+  const grid = document.getElementById('dailyGrid');
+  grid.innerHTML = '';
+
+  // days elapsed this month
+  const mNum = MONTH_NUMS[selectedIdx];
+  const year = mNum <= 3 ? 2027 : 2026;
+  const daysInMonth = new Date(year, mNum, 0).getDate();
+  let elapsed;
+  if (selectedIdx === monthToIdx(currentMonth)) {
+    elapsed = today.getDate();
+  } else if (ACTUALS.revenue[selectedIdx] !== null) {
+    elapsed = daysInMonth; // month completed
+  } else {
+    elapsed = 0;
+  }
+
+  KPI_DEFS.forEach(def => {
+    const actual = ACTUALS[def.key][selectedIdx];
+    const target = TARGETS[def.key][selectedIdx];
+
+    let paceVal = null, projected = null, onTrack = null;
+    if (actual !== null && elapsed > 0) {
+      paceVal = Math.round(actual / elapsed); // per day
+      projected = Math.round(paceVal * daysInMonth);
+      onTrack = Math.round(projected / target * 100);
+    }
+
+    const div = document.createElement('div');
+    div.className = 'daily-item';
+    const color = onTrack !== null ? rateColorVar(onTrack) : 'var(--muted)';
+
+    div.innerHTML = `
+      <div class="d-label">${def.label}</div>
+      <div class="d-pace" style="color:${color}">${paceVal !== null ? fmt(paceVal, def.type) + '/日' : '—'}</div>
+      <div class="d-sub">月末着地予測: ${projected !== null ? fmt(projected, def.type) : '—'}</div>
+      <div class="pace-bar">
+        <div class="pace-bar-inner"><div class="pace-bar-fill" style="width:${Math.min(onTrack||0,100)}%;background:${color};"></div></div>
+        <span style="font-size:11px;color:${color};white-space:nowrap;">${onTrack !== null ? onTrack+'%' : ''}</span>
+      </div>
+    `;
+    grid.appendChild(div);
+  });
+}
+
+// ========== CHARTS ==========
+let charts = {};
+
+function makeChartData(key) {
+  const labels = MONTHS;
+  const targets = TARGETS[key];
+  const actuals = ACTUALS[key].map(v => v === null ? null : v);
+  return { labels, targets, actuals };
+}
+
+const CHART_COLORS = {
+  revenue: { target: '#ffd166', actual: '#ffc107' },
+  hview:   { target: '#7c5cfc', actual: '#a78bfa' },
+  sview:   { target: '#00d4aa', actual: '#34d399' },
+  sub:     { target: '#ff6b6b', actual: '#fca5a5' },
+};
+
+function buildChart(canvasId, key, label) {
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  const d = makeChartData(key);
+  const c = CHART_COLORS[key];
+  if (charts[key]) charts[key].destroy();
+  charts[key] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: d.labels,
+      datasets: [
+        {
+          label: '目標',
+          data: d.targets,
+          backgroundColor: c.target + '44',
+          borderColor: c.target,
+          borderWidth: 1,
+          borderRadius: 4,
+          type: 'bar',
+        },
+        {
+          label: '実績',
+          data: d.actuals,
+          backgroundColor: c.actual,
+          borderColor: c.actual,
+          borderWidth: 1,
+          borderRadius: 4,
+          type: 'bar',
+        },
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { labels: { color: '#7070a0', font: { size: 11 } } },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const v = ctx.parsed.y;
+              if (v === null) return null;
+              if (key === 'revenue') return ctx.dataset.label + ': ¥' + v.toLocaleString();
+              return ctx.dataset.label + ': ' + v.toLocaleString();
+            }
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { color: '#7070a0', font: { size: 11 } }, grid: { color: '#2a2a3d' } },
+        y: { ticks: { color: '#7070a0', font: { size: 11 }, callback: v => key==='revenue'?'¥'+v.toLocaleString():v.toLocaleString() }, grid: { color: '#2a2a3d' } }
+      }
+    }
+  });
+}
+
+function renderCharts() {
+  buildChart('chartRevenue','revenue','収益');
+  buildChart('chartHView','hview','横動画再生数');
+  buildChart('chartSView','sview','ショート再生数');
+  buildChart('chartSub','sub','CH増加');
+}
+
+// ========== ANNUAL TABLE ==========
+function renderTable() {
+  const table = document.getElementById('annualTable');
+  const currentMi = monthToIdx(currentMonth);
+
+  const rows = [
+    { label: '収益 目標', key: 'revenue', row: 'target', type: 'revenue' },
+    { label: '収益 実績', key: 'revenue', row: 'actual', type: 'revenue' },
+    { label: '収益 達成率', key: 'revenue', row: 'rate' },
+    { label: '横動画 目標', key: 'hview', row: 'target', type: 'num' },
+    { label: '横動画 実績', key: 'hview', row: 'actual', type: 'num' },
+    { label: '横動画 達成率', key: 'hview', row: 'rate' },
+    { label: 'ショート 目標', key: 'sview', row: 'target', type: 'num' },
+    { label: 'ショート 実績', key: 'sview', row: 'actual', type: 'num' },
+    { label: 'ショート 達成率', key: 'sview', row: 'rate' },
+    { label: 'CH増加 目標', key: 'sub', row: 'target', type: 'num' },
+    { label: 'CH増加 実績', key: 'sub', row: 'actual', type: 'num' },
+    { label: 'CH増加 達成率', key: 'sub', row: 'rate' },
+  ];
+
+  let html = '<thead><tr><th>項目</th>';
+  MONTHS.forEach(m => { html += `<th>${m}</th>`; });
+  html += '<th>上半期計</th><th>通期目標</th></tr></thead><tbody>';
+
+  rows.forEach(r => {
+    const isRate = r.row === 'rate';
+    const isActual = r.row === 'actual';
+    const isTarget = r.row === 'target';
+    const rowClass = isRate ? 'row-rate' : isActual ? 'row-actual' : 'row-target';
+
+    html += `<tr>`;
+    html += `<td class="${rowClass}">${r.label}</td>`;
+
+    let h1sum = 0, h1tsum = 0;
+    MONTHS.forEach((_, i) => {
+      const isCurrent = i === currentMi;
+      const cellClass = isCurrent ? 'current-month ' : '';
+
+      if (isTarget) {
+        const v = TARGETS[r.key][i];
+        if (i < 6) { h1sum += v; }
+        html += `<td class="${cellClass}${rowClass}">${fmt(v, r.type)}</td>`;
+      } else if (isActual) {
+        const v = ACTUALS[r.key][i];
+        if (v !== null && i < 6) h1sum += v;
+        html += `<td class="${cellClass}${rowClass}">${fmt(v, r.type)}</td>`;
+      } else {
+        const rate = calcRate(ACTUALS[r.key][i], TARGETS[r.key][i]);
+        if (rate !== null) {
+          const rc = rateColor(rate);
+          html += `<td class="${cellClass}${rowClass} ${rc}">${rate}%</td>`;
+        } else {
+          html += `<td class="${cellClass}${rowClass}">—</td>`;
+        }
+        if (i < 6 && ACTUALS[r.key][i] !== null) h1tsum++;
+      }
+    });
+
+    // H1 summary
+    if (isTarget) {
+      const h1t = TARGETS[r.key].slice(0,6).reduce((a,b)=>a+b,0);
+      const total = TARGETS[r.key].reduce((a,b)=>a+b,0);
+      html += `<td>${fmt(h1t, r.type)}</td><td>${fmt(total, r.type)}</td>`;
+    } else if (isActual) {
+      const h1a = ACTUALS[r.key].slice(0,6).reduce((a,b)=>a+(b||0),0);
+      html += `<td>${fmt(h1a > 0 ? h1a : null, r.type)}</td><td>—</td>`;
+    } else {
+      const h1t = TARGETS[r.key].slice(0,6).reduce((a,b)=>a+b,0);
+      const h1a = ACTUALS[r.key].slice(0,6).reduce((a,b)=>a+(b||0),0);
+      const h1rate = h1a > 0 ? Math.round(h1a/h1t*100) : null;
+      if (h1rate !== null) {
+        html += `<td class="row-rate ${rateColor(h1rate)}">${h1rate}%</td>`;
+      } else {
+        html += `<td>—</td>`;
+      }
+      html += `<td>—</td>`;
+    }
+
+    html += `</tr>`;
+  });
+
+  html += '</tbody>';
+  table.innerHTML = html;
+}
+
+// ========== ACTIONS ==========
+function applyInput() {
+  const ids = ['inp_revenue','inp_hview','inp_sview','inp_sub'];
+  const keys = ['revenue','hview','sview','sub'];
+  keys.forEach((k,i) => {
+    const val = document.getElementById(ids[i]).value;
+    ACTUALS[k][selectedIdx] = val !== '' ? parseInt(val, 10) : null;
+  });
+  saveToStorage();
+  renderAll();
+  // 保存完了の簡易フィードバック
+  const btn = document.querySelector('.btn-update');
+  const orig = btn.textContent;
+  btn.textContent = '✅ 保存しました';
+  btn.style.background = 'var(--green)';
+  setTimeout(() => { btn.textContent = orig; btn.style.background = ''; }, 1500);
+}
+
+function renderAll() {
+  renderTabs();
+  renderKPIs();
+  renderPace();
+  renderCharts();
+  renderTable();
+}
+
+// ========== SAVE ==========
+function saveHtml() {
+  // Embed current ACTUALS into the file and download
+  const src = document.documentElement.outerHTML;
+  const newActuals = 'let ACTUALS = ' + JSON.stringify(ACTUALS, null, 2) + ';';
+  const newSrc = src.replace(/let ACTUALS\s*=\s*\{[\s\S]*?\};/, newActuals);
+
+  const blob = new Blob([newSrc], { type: 'text/html' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'mimei_dashboard_' + new Date().toISOString().slice(0,10) + '.html';
+  a.click();
+}
+
+// ========== LOCALSTORAGE PERSISTENCE ==========
+const LS_KEY = 'mimei_actuals_v1';
+
+function loadFromStorage() {
+  try {
+    const saved = localStorage.getItem(LS_KEY);
+    if (!saved) return;
+    const parsed = JSON.parse(saved);
+    // HTMLにnullの月だけlocalStorageで補完（スクリプト取得済みの値は上書きしない）
+    ['revenue','hview','sview','sub'].forEach(k => {
+      if (parsed[k]) {
+        parsed[k].forEach((v, i) => {
+          if (v !== null && v !== undefined && ACTUALS[k][i] === null) {
+            ACTUALS[k][i] = v;
+          }
+        });
+      }
+    });
+    console.log('✅ localStorageからデータを補完しました');
+  } catch(e) {
+    console.warn('localStorage読み込みエラー:', e);
+  }
+}
+
+function saveToStorage() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(ACTUALS));
+  } catch(e) {
+    console.warn('localStorage保存エラー:', e);
+  }
+}
+
+// ========== START ==========
+loadFromStorage();
+saveToStorage(); // HTMLの最新値でlocalStorageを更新（古いキャッシュを上書き）
+renderAll();
+</script>
+</body>
+</html>

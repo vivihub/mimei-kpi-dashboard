@@ -45,7 +45,7 @@ SCOPES = [
 
 CLIENT_SECRET_FILE = "client_secret.json"   # Google Cloud からダウンロードしたファイル
 TOKEN_FILE         = "token.json"            # 認証後に自動生成
-DASHBOARD_FILE     = "mimei_dashboard.html"  # 更新対象の HTML
+DASHBOARD_FILE     = "index.html"            # 更新対象の HTML
 
 # 2026年度の月一覧 (年, 月) 順で 12ヶ月
 FISCAL_MONTHS = [
