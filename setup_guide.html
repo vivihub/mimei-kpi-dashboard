@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>セットアップガイド｜未明シアター ダッシュボード</title>
+<style>
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #0e0e14; color: #e8e8f0; margin: 0; padding: 0; }
+  .wrap { max-width: 740px; margin: 0 auto; padding: 40px 24px 60px; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .sub { color: #7070a0; font-size: 14px; margin-bottom: 36px; }
+  .step { background: #16161f; border: 1px solid #2a2a3d; border-radius: 12px; padding: 22px 24px; margin-bottom: 16px; }
+  .step-num { background: #7c5cfc; color: #fff; font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 20px; display: inline-block; margin-bottom: 10px; }
+  .step h2 { font-size: 16px; font-weight: 700; margin: 0 0 10px; }
+  .step p { font-size: 14px; color: #b0b0cc; line-height: 1.7; margin: 0 0 10px; }
+  .step a { color: #a78bfa; text-decoration: none; }
+  .step a:hover { text-decoration: underline; }
+  code { background: #1c1c28; border: 1px solid #2a2a3d; border-radius: 4px; padding: 2px 7px; font-size: 13px; font-family: monospace; color: #ffd166; }
+  pre { background: #1c1c28; border: 1px solid #2a2a3d; border-radius: 8px; padding: 14px 16px; font-size: 13px; font-family: monospace; color: #e8e8f0; overflow-x: auto; line-height: 1.6; }
+  .badge { display: inline-block; background: #00d4aa22; color: #00d4aa; font-size: 11px; border-radius: 4px; padding: 2px 8px; margin-right: 6px; }
+  .warn { background: #ffd16622; border: 1px solid #ffd16644; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #ffd166; margin-top: 10px; }
+  .done { background: #00d4aa22; border: 1px solid #00d4aa44; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #00d4aa; margin-top: 10px; }
+  img-placeholder { display: block; background: #1c1c28; border: 1px dashed #2a2a3d; border-radius: 8px; height: 80px; line-height: 80px; text-align: center; color: #7070a0; font-size: 12px; margin-top: 10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🔧 セットアップガイド</h1>
+  <p class="sub">未明シアター ダッシュボード × YouTube API 自動連携</p>
+
+  <!-- STEP 1 -->
+  <div class="step">
+    <div class="step-num">STEP 1</div>
+    <h2>Python をインストール</h2>
+    <p>まだ Python が入っていない場合は <a href="https://www.python.org/downloads/" target="_blank">python.org</a> からインストールしてください（3.8以上）。</p>
+    <p>インストール確認（ターミナル / コマンドプロンプトで）:</p>
+    <pre>python --version</pre>
+  </div>
+
+  <!-- STEP 2 -->
+  <div class="step">
+    <div class="step-num">STEP 2</div>
+    <h2>必要ライブラリをインストール</h2>
+    <p>ダッシュボードファイルと同じフォルダで以下を実行:</p>
+    <pre>pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib</pre>
+    <p>または <code>requirements.txt</code> を使う場合:</p>
+    <pre>pip install -r requirements.txt</pre>
+  </div>
+
+  <!-- STEP 3 -->
+  <div class="step">
+    <div class="step-num">STEP 3</div>
+    <h2>Google Cloud プロジェクトを作成</h2>
+    <p><a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a> を開いてください。</p>
+    <p><strong>① 新しいプロジェクトを作成</strong><br>
+       上部の「プロジェクトを選択」→「新しいプロジェクト」→ 名前（例: <code>mimei-dashboard</code>）を入力 → 作成</p>
+    <p><strong>② YouTube API を有効化</strong><br>
+       左メニュー「APIとサービス」→「ライブラリ」から以下を検索して有効化:</p>
+    <p>
+      <span class="badge">必須</span><strong>YouTube Data API v3</strong><br>
+      <span class="badge">必須</span><strong>YouTube Analytics API</strong>
+    </p>
+    <div class="warn">⚠️ 2つとも有効化が必要です。片方だけだとエラーになります。</div>
+  </div>
+
+  <!-- STEP 4 -->
+  <div class="step">
+    <div class="step-num">STEP 4</div>
+    <h2>OAuth クライアント ID を作成</h2>
+    <p>「APIとサービス」→「認証情報」→「認証情報を作成」→「OAuth クライアント ID」を選択。</p>
+    <p><strong>アプリケーションの種類:</strong> <code>デスクトップ アプリ</code><br>
+       <strong>名前:</strong> なんでも OK（例: mimei-dashboard）</p>
+    <p>作成後、「<strong>JSONをダウンロード</strong>」ボタンをクリック。</p>
+    <p>ダウンロードしたファイルを <strong><code>client_secret.json</code></strong> にリネームして、<br>
+       スクリプトと同じフォルダに置いてください。</p>
+    <div class="warn">⚠️ OAuth 同意画面の設定も求められます。「外部」を選び、テストユーザーに自分のメールアドレスを追加してください。</div>
+  </div>
+
+  <!-- STEP 5 -->
+  <div class="step">
+    <div class="step-num">STEP 5</div>
+    <h2>スクリプトを実行</h2>
+    <p>ターミナルでファイルが置いてあるフォルダに移動して:</p>
+    <pre>python fetch_youtube.py</pre>
+    <p>初回はブラウザが自動で開くので、YouTubeチャンネルと紐づいた Google アカウントでログインしてください。</p>
+    <div class="done">✅ 完了すると token.json が作成され、次回からはログイン不要でデータ取得できます。</div>
+  </div>
+
+  <!-- STEP 6 -->
+  <div class="step">
+    <div class="step-num">STEP 6</div>
+    <h2>毎日の使い方</h2>
+    <p>毎日1回実行するだけです:</p>
+    <pre>python fetch_youtube.py</pre>
+    <p>当月データだけを再取得するため高速です。全月を再取得したい場合:</p>
+    <pre>python fetch_youtube.py --all</pre>
+    <p>実行後、<code>mimei_dashboard.html</code> が自動で更新・ブラウザで開きます。</p>
+    <div class="done">💡 Mac なら「自動化」アプリ / Windows なら「タスクスケジューラ」で毎朝自動実行にもできます。</div>
+  </div>
+
+  <!-- FILE LAYOUT -->
+  <div class="step">
+    <div class="step-num">ファイル構成</div>
+    <h2>同じフォルダに置くファイル</h2>
+    <pre>📁 dashboard/
+├── mimei_dashboard.html   ← ダッシュボード本体
+├── fetch_youtube.py       ← データ取得スクリプト
+├── client_secret.json     ← Google Cloud からダウンロード（STEP 4）
+├── token.json             ← 初回認証後に自動生成
+└── requirements.txt       ← ライブラリ一覧</pre>
+  </div>
+
+  <!-- TROUBLESHOOTING -->
+  <div class="step">
+    <div class="step-num">トラブルシューティング</div>
+    <h2>よくあるエラー</h2>
+    <p><code>access_denied</code> が出る<br>
+       → OAuth同意画面のテストユーザーに自分のメールを追加してください。</p>
+    <p><code>403 insufficientPermissions</code><br>
+       → YouTube Analytics API が有効化されているか確認してください。</p>
+    <p>収益が 0 になる<br>
+       → チャンネルが収益化されていない、またはデータ反映に2〜3日かかる場合があります。</p>
+    <p><code>quota exceeded</code><br>
+       → 1日のAPI利用上限（無料枠: 10,000ユニット）に達しました。翌日に再実行してください。</p>
+  </div>
+</div>
+</body>
+</html>

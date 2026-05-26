@@ -1,0 +1,16 @@
+# 認証情報（絶対にアップロードしない）
+client_secret.json
+token.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 一時ファイル
+write_test.txt
