@@ -23,7 +23,7 @@ import json
 import calendar
 import argparse
 import webbrowser
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 
 # ── サードパーティライブラリ ──
 try:
@@ -248,13 +248,13 @@ def get_views_by_content_type(analytics, year, month, debug=False):
     h_views = 0
     s_views = 0
     for row in resp.get("rows", []):
-        content_type = row[0]
+        content_type = row[0].lower()   # APIは小文字("shorts")で返す
         views = int(row[1])
-        if content_type == "SHORTS":
+        if content_type == "shorts":
             s_views = views
-        else:
-            # UPLOADED_VIDEO_LONG_FORM, VIDEO_LONG_FORM, LIVE_STREAM など横動画扱い
+        elif content_type in ("videoondemand", "live_stream", "uploaded_video_long_form", "video_long_form"):
             h_views += views
+        # "posts"（コミュニティ投稿）などは集計しない
 
     return h_views, s_views
 
@@ -298,7 +298,64 @@ def fetch_month(youtube, analytics, channel_id, year, month, force=False, debug=
     }
 
 
-def update_dashboard(actuals_dict: dict):
+def get_daily_subscribers(youtube, analytics, debug=False):
+    """
+    年度開始(4/1)から今日までの日次チャンネル登録者数推移を取得。
+    Returns: { "dates": [...], "counts": [...] }
+    """
+    today = date.today()
+    start = "2026-04-01"
+    end   = today.strftime("%Y-%m-%d")
+
+    # 1. 現在の総登録者数を取得
+    resp = youtube.channels().list(part="statistics", mine=True).execute()
+    current_subs = int(resp["items"][0]["statistics"]["subscriberCount"])
+    print(f"  📊 現在の登録者数: {current_subs:,} 人")
+
+    # 2. 日次増減を取得
+    try:
+        resp2 = analytics.reports().query(
+            ids="channel==MINE",
+            startDate=start,
+            endDate=end,
+            dimensions="day",
+            metrics="subscribersGained,subscribersLost",
+        ).execute()
+    except Exception as e:
+        print(f"  ⚠️  日次データ取得エラー: {e}")
+        return None
+
+    if debug:
+        import json as _json
+        print(f"\n  [DEBUG] daily subs rows: {len(resp2.get('rows', []))}")
+
+    # 日付 → 純増数マップ
+    daily_net = {}
+    for row in resp2.get("rows", []):
+        day_str = row[0]   # "2026-04-01"
+        net = int(row[1]) - int(row[2])   # gained - lost
+        daily_net[day_str] = net
+
+    # 3. 日付リスト生成（4/1 ～ 今日）
+    dates = []
+    d = date(2026, 4, 1)
+    while d <= today:
+        dates.append(d.strftime("%Y-%m-%d"))
+        d += timedelta(days=1)
+
+    # 4. 今日の値 = current_subs から逆算
+    counts = [None] * len(dates)
+    counts[-1] = current_subs
+    for i in range(len(dates) - 2, -1, -1):
+        next_day = dates[i + 1]
+        net = daily_net.get(next_day, 0)
+        counts[i] = counts[i + 1] - net
+
+    print(f"  📈 日次データ: {dates[0]} ～ {dates[-1]} ({len(dates)}日分)")
+    return {"dates": dates, "counts": counts}
+
+
+def update_dashboard(actuals_dict: dict, daily_subs: dict = None):
     """
     mimei_dashboard.html 内の ACTUALS オブジェクトを更新する。
     """
@@ -309,15 +366,24 @@ def update_dashboard(actuals_dict: dict):
     with open(DASHBOARD_FILE, "r", encoding="utf-8") as f:
         html = f.read()
 
-    # ACTUALS = { ... }; の部分を置換
-    pattern = r"(let ACTUALS\s*=\s*)\{[\s\S]*?\};"
-    new_block = f"let ACTUALS = {json.dumps(actuals_dict, ensure_ascii=False, indent=2)};"
+    # ACTUALS を更新
+    pattern_actuals = r"(let ACTUALS\s*=\s*)\{[\s\S]*?\};"
+    new_actuals = f"let ACTUALS = {json.dumps(actuals_dict, ensure_ascii=False, indent=2)};"
 
-    if not re.search(pattern, html):
+    if not re.search(pattern_actuals, html):
         print(f"⚠️  {DASHBOARD_FILE} 内に ACTUALS が見つかりません。手動で確認してください。")
         return
 
-    new_html = re.sub(pattern, new_block, html)
+    new_html = re.sub(pattern_actuals, new_actuals, html)
+
+    # DAILY_SUBS を更新（データがある場合）
+    if daily_subs is not None:
+        pattern_daily = r"(let DAILY_SUBS\s*=\s*)\{[\s\S]*?\};"
+        new_daily = f"let DAILY_SUBS = {json.dumps(daily_subs, ensure_ascii=False, indent=2)};"
+        if re.search(pattern_daily, new_html):
+            new_html = re.sub(pattern_daily, new_daily, new_html)
+        else:
+            print("⚠️  DAILY_SUBS が見つかりません。index.html を最新版に更新してください。")
 
     with open(DASHBOARD_FILE, "w", encoding="utf-8") as f:
         f.write(new_html)
@@ -382,9 +448,13 @@ def main():
             actuals["sview"][idx]   = result["sview"]
             actuals["sub"][idx]     = result["sub"]
 
+    # 日次チャンネル登録者数推移を取得
+    print("\n📅 日次チャンネル登録者数を取得しています...")
+    daily_subs = get_daily_subscribers(youtube, analytics, debug=args.debug)
+
     # HTML を更新
     print()
-    update_dashboard(actuals)
+    update_dashboard(actuals, daily_subs=daily_subs)
 
     # ブラウザで開く
     dashboard_path = os.path.abspath(DASHBOARD_FILE)

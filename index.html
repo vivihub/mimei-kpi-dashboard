@@ -113,6 +113,13 @@
   .pace-bar { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
   .pace-bar-inner { flex: 1; background: var(--border); border-radius: 4px; height: 4px; overflow: hidden; }
   .pace-bar-fill { height: 100%; border-radius: 4px; }
+
+  /* DAILY SUBSCRIBER TREND */
+  .sub-trend-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin: 0 0 20px; }
+  .sub-trend-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .sub-trend-title { font-size: 14px; font-weight: 600; color: var(--text); }
+  .sub-trend-current { font-size: 22px; font-weight: 700; color: var(--accent2); }
+  .sub-trend-sub { font-size: 12px; color: var(--muted); margin-top: 2px; margin-bottom: 14px; }
 </style>
 </head>
 <body>
@@ -133,6 +140,21 @@
 <div class="month-tabs" id="monthTabs"></div>
 
 <div class="main">
+  <!-- DAILY SUBSCRIBER TREND -->
+  <div class="sub-trend-card" id="subTrendCard">
+    <div class="sub-trend-header">
+      <div>
+        <div class="sub-trend-title">📈 チャンネル登録者数 推移（日次）</div>
+        <div class="sub-trend-sub" id="subTrendSub">—</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:2px;">現在の登録者数</div>
+        <div class="sub-trend-current" id="subTrendCurrent">—</div>
+      </div>
+    </div>
+    <canvas id="chartSubDaily" height="90"></canvas>
+  </div>
+
   <!-- KPI CARDS -->
   <div class="section" style="border-radius:0 12px 12px 12px; border-top:1px solid var(--border);">
     <div class="kpi-grid" id="kpiGrid"></div>
@@ -228,8 +250,8 @@ let ACTUALS = {
     null
   ],
   "hview": [
-    790467,
-    778000,
+    310553,
+    755032,
     null,
     null,
     null,
@@ -242,8 +264,8 @@ let ACTUALS = {
     null
   ],
   "sview": [
-    0,
-    215000,
+    478906,
+    210209,
     null,
     null,
     null,
@@ -257,7 +279,7 @@ let ACTUALS = {
   ],
   "sub": [
     1205,
-    3144,
+    3070,
     null,
     null,
     null,
@@ -269,6 +291,12 @@ let ACTUALS = {
     null,
     null
   ]
+};
+
+// 日次チャンネル登録者数推移（fetch_youtube.py が自動更新）
+let DAILY_SUBS = {
+  "dates":  [],
+  "counts": []
 };
 
 // ========== STATE ==========
@@ -590,12 +618,91 @@ function applyInput() {
   setTimeout(() => { btn.textContent = orig; btn.style.background = ''; }, 1500);
 }
 
+
+// ========== DAILY SUBSCRIBER TREND ==========
+function renderSubTrend() {
+  if (!DAILY_SUBS || !DAILY_SUBS.dates || DAILY_SUBS.dates.length === 0) {
+    document.getElementById('subTrendSub').textContent = 'データなし（fetch_youtube.py を実行してください）';
+    return;
+  }
+
+  const dates  = DAILY_SUBS.dates;
+  const counts = DAILY_SUBS.counts;
+  const latest = counts[counts.length - 1];
+  const first  = counts[0];
+  const diff   = latest - first;
+
+  document.getElementById('subTrendCurrent').textContent = latest.toLocaleString() + ' 人';
+  document.getElementById('subTrendSub').textContent =
+    `${dates[0]} ～ ${dates[dates.length-1]}　年度増減: ${diff >= 0 ? '+' : ''}${diff.toLocaleString()} 人`;
+
+  // 表示ラベル: 7日おきに日付表示
+  const labels = dates.map((d, i) => {
+    if (i === 0 || i === dates.length - 1 || i % 7 === 0) {
+      const dt = new Date(d);
+      return `${dt.getMonth()+1}/${dt.getDate()}`;
+    }
+    return '';
+  });
+
+  const ctx = document.getElementById('chartSubDaily').getContext('2d');
+  if (charts['subDaily']) charts['subDaily'].destroy();
+  charts['subDaily'] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'チャンネル登録者数',
+        data: counts,
+        borderColor: '#00d4aa',
+        backgroundColor: 'rgba(0,212,170,0.08)',
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        fill: true,
+        tension: 0.3,
+      }]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: items => {
+              const d = dates[items[0].dataIndex];
+              const dt = new Date(d);
+              return `${dt.getFullYear()}/${dt.getMonth()+1}/${dt.getDate()}`;
+            },
+            label: item => '登録者数: ' + item.parsed.y.toLocaleString() + ' 人'
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#7070a0', font: { size: 10 },
+                   maxRotation: 0,
+                   callback: (val, i) => labels[i] },
+          grid: { color: '#2a2a3d' }
+        },
+        y: {
+          ticks: { color: '#7070a0', font: { size: 11 },
+                   callback: v => v.toLocaleString() },
+          grid: { color: '#2a2a3d' }
+        }
+      }
+    }
+  });
+}
+
 function renderAll() {
   renderTabs();
   renderKPIs();
   renderPace();
   renderCharts();
   renderTable();
+  renderSubTrend();
 }
 
 // ========== SAVE ==========
@@ -603,7 +710,9 @@ function saveHtml() {
   // Embed current ACTUALS into the file and download
   const src = document.documentElement.outerHTML;
   const newActuals = 'let ACTUALS = ' + JSON.stringify(ACTUALS, null, 2) + ';';
-  const newSrc = src.replace(/let ACTUALS\s*=\s*\{[\s\S]*?\};/, newActuals);
+  const newDaily  = 'let DAILY_SUBS = ' + JSON.stringify(DAILY_SUBS, null, 2) + ';';
+  let newSrc = src.replace(/let ACTUALS\s*=\s*\{[\s\S]*?\};/, newActuals);
+  newSrc = newSrc.replace(/let DAILY_SUBS\s*=\s*\{[\s\S]*?\};/, newDaily);
 
   const blob = new Blob([newSrc], { type: 'text/html' });
   const a = document.createElement('a');
