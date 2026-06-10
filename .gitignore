@@ -1,6 +1,21 @@
 # 認証情報（絶対にアップロードしない）
 client_secret.json
 token.json
+*token*.json
+*secret*.json
+
+# iCloud/Dropbox等の同期で生成される複製ファイル
+* 2.*
+* 2
+*\ 2.json
+*\ 2.sh
+*\ 2.plist
+*\ 2.log
+
+# ログ・一時出力
+*.log
+fetch_log.txt
+push_log.txt
 
 # Python
 __pycache__/
