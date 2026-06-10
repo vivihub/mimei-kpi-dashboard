@@ -2,7 +2,7 @@
 # 未明シアター KPI ダッシュボード 自動更新スクリプト
 # 毎日朝9時に fetch_youtube.py を実行し、結果を GitHub へ Push する
 
-PROJECT_DIR="/Users/shusuzuki/Documents/Claude/Projects/HDE重要KPI管理ダッシュボード"
+PROJECT_DIR="/Library/Claude/Projects/HDE重要KPI管理ダッシュボード"
 LOG_FILE="$PROJECT_DIR/daily_update.log"
 
 echo " =====================================" >> "$LOG_FILE"
@@ -25,7 +25,7 @@ git add index.html >> "$LOG_FILE" 2>&1
 if git diff --cached --quiet; then
   echo "$(date '+%Y-%m-%d %H:%M:%S') 変更なし。スクップ。" >> "$LOG_FILE"
 else
-  git commit -m "自動更新: $(date '+%Y-%m-%d')" >> "$LOG_FILE" 2>&1
+  git -c user.name='Shu' -c user.email='shu.1sec@gmail.com' commit -m "自動更新: $(date '+%Y-%m-%d')" >> "$LOG_FILE" 2>&1
   git push origin main >> "$LOG_FILE" 2>&1
   PUSH_STATUS=$?
   if [ $PUSH_STATUS -eq 0 ]; then

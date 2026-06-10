@@ -9,7 +9,7 @@
   <key>ProgramArguments</key>
   <array>
     <string>/bin/bash</string>
-    <string>/Users/shusuzuki/Documents/Claude/Projects/HDE重要KPI管理ダッシュボード/daily_update.sh</string>
+    <string>/Library/Claude/Projects/HDE重要KPI管理ダッシュボード/daily_update.sh</string>
   </array>
 
   <!-- 毎日 09:00 に実行 -->
@@ -22,9 +22,9 @@
   </dict>
 
   <key>StandardOutPath</key>
-  <string>/Users/shusuzuki/Documents/Claude/Projects/HDE重要KPI管理ダッシュボード/daily_update.log</string>
+  <string>/Library/Claude/Projects/HDE重要KPI管理ダッシュボード/daily_update.log</string>
   <key>StandardErrorPath</key>
-  <string>/Users/shusuzuki/Documents/Claude/Projects/HDE重要KPI管理ダッシュボード/daily_update.log</string>
+  <string>/Library/Claude/Projects/HDE重要KPI管理ダッシュボード/daily_update.log</string>
 
   <key>RunAtLoad</key>
   <false/>
