@@ -472,10 +472,12 @@ def main():
     print()
     update_dashboard(actuals, daily_subs=daily_subs)
 
-    # ブラウザで開く
-    dashboard_path = os.path.abspath(DASHBOARD_FILE)
-    print(f"🌐 ダッシュボードを開きます: {dashboard_path}")
-    webbrowser.open(f"file://{dashboard_path}")
+    # ブラウザで開く（対話実行のときだけ。自動実行ではChromeへのAppleEventが
+    # タイムアウトして処理が止まることがあるため開かない）
+    if sys.stdout.isatty() and not os.environ.get("MIMEI_NO_BROWSER"):
+        dashboard_path = os.path.abspath(DASHBOARD_FILE)
+        print(f"🌐 ダッシュボードを開きます: {dashboard_path}")
+        webbrowser.open(f"file://{dashboard_path}")
 
 
 if __name__ == "__main__":

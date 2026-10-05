@@ -19,7 +19,7 @@ git pull --rebase origin main >> "$LOG_FILE" 2>&1 || {
 }
 
 # 1. YouTube APIからデータ取得 → index.html 更新
-python3 fetch_youtube.py >> "$LOG_FILE" 2>&1
+MIMEI_NO_BROWSER=1 python3 -u fetch_youtube.py >> "$LOG_FILE" 2>&1
 FETCH_STATUS=$?
 
 if [ $FETCH_STATUS -ne 0 ]; then
