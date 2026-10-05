@@ -351,7 +351,19 @@ def get_daily_subscribers(youtube, analytics, debug=False):
         net = daily_net.get(next_day, 0)
         counts[i] = counts[i + 1] - net
 
-    print(f"  📈 日次データ: {dates[0]} ～ {dates[-1]} ({len(dates)}日分)")
+    # 4.5 Analytics未確定（通常2〜3日遅延）の末尾を除外する。
+    #   直近日は subscribersGained/Lost がまだ返らず net=0 のため、
+    #   逆算で「今日の丸め値」がそのまま並びフラットになる。これは確定値
+    #   ではないので、純増データが実在する最後の日までで線を止める。
+    last_idx = len(dates) - 1
+    while last_idx > 0 and daily_net.get(dates[last_idx], 0) == 0:
+        last_idx -= 1
+    trimmed = (len(dates) - 1) - last_idx
+    dates  = dates[:last_idx + 1]
+    counts = counts[:last_idx + 1]
+
+    note = f"（確定分のみ・末尾{trimmed}日は未確定のため除外）" if trimmed else ""
+    print(f"  📈 日次データ: {dates[0]} ～ {dates[-1]} ({len(dates)}日分){note}")
     return {"dates": dates, "counts": counts}
 
 
@@ -436,8 +448,12 @@ def main():
         today = date.today()
         is_current = (year == today.year and month == today.month)
         has_data   = actuals["revenue"][idx] not in (None, 0)
+        # 月末直後に取得した値は確定前（Analyticsは2〜3日遅れ、収益はさらに後で確定）なので、
+        # 月末から40日以内の月（＝前月）は毎回再取得して確定値に上書きする
+        month_end  = date(year, month, calendar.monthrange(year, month)[1])
+        is_recent  = 0 <= (today - month_end).days <= 40
 
-        if not args.all and has_data and not is_current:
+        if not args.all and has_data and not is_current and not is_recent:
             print(f"  📅 {year}年{month}月 スキップ（既存データあり）")
             continue
 

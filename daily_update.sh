@@ -10,6 +10,14 @@ echo "$(date '+%Y-%m-%d %H:%M:%S') 自動更新開始" >> "$LOG_FILE"
 
 cd "$PROJECT_DIR" || { echo "フォルダが見つかりません" >> "$LOG_FILE"; exit 1; }
 
+# 0. GitHub側で直接修正された分を先に取り込む（取り込まないと push が拒否される／手修正が上書きされる）
+#    ※ 失敗したら自動では続行しない（途中状態のrebaseが残ると以降のpushが空振りするため）
+git pull --rebase origin main >> "$LOG_FILE" 2>&1 || {
+  echo "$(date '+%Y-%m-%d %H:%M:%S') ⚠️  git pull --rebase に失敗。中断して元に戻します（手動で git pull を実行してください）" >> "$LOG_FILE"
+  git rebase --abort >> "$LOG_FILE" 2>&1 || true
+  exit 1
+}
+
 # 1. YouTube APIからデータ取得 → index.html 更新
 python3 fetch_youtube.py >> "$LOG_FILE" 2>&1
 FETCH_STATUS=$?
